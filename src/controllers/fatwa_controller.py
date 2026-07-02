@@ -30,15 +30,25 @@ Kaynaklar:
 """
 
 
-_llm = None
+# Embedding ve generation artık ayrı provider'lar olabilir (örn. embedding
+# Google, generation Groq). İkisi de tekil (singleton) olarak tutulur.
+_embedding_llm = None
+_generation_llm = None
 _vdb = None
 
 
-def get_llm():
-    global _llm
-    if _llm is None:
-        _llm = LLMProviderFactory.create()
-    return _llm
+def get_embedding_llm():
+    global _embedding_llm
+    if _embedding_llm is None:
+        _embedding_llm = LLMProviderFactory.create_embedding_provider()
+    return _embedding_llm
+
+
+def get_generation_llm():
+    global _generation_llm
+    if _generation_llm is None:
+        _generation_llm = LLMProviderFactory.create_generation_provider()
+    return _generation_llm
 
 
 def get_vdb():
@@ -49,12 +59,13 @@ def get_vdb():
 
 
 async def ask_question(request: AskRequest) -> AskResponse:
-    llm = get_llm()
+    embedding_llm = get_embedding_llm()
+    generation_llm = get_generation_llm()
     vdb = get_vdb()
 
-    # 1. Soruyu embed et
+    # 1. Soruyu embed et (her zaman Google üzerinden)
     try:
-        query_vector = llm.embed_text(request.question)
+        query_vector = embedding_llm.embed_text(request.question)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Embedding servisi hatası: {str(e)}")
 
@@ -83,9 +94,9 @@ FETVALAR:
 
 KULLANICI SORUSU: {request.question}"""
 
-    # 4. LLM ile cevap üret
+    # 4. LLM ile cevap üret (Google veya Groq -- .env -> GENERATION_BACKEND)
     try:
-        answer = llm.generate_text(prompt, system_prompt=SYSTEM_PROMPT)
+        answer = generation_llm.generate_text(prompt, system_prompt=SYSTEM_PROMPT)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Cevap üretme hatası: {str(e)}")
 
