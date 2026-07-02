@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     VECTORDB_BACKEND: str
     VECTOR_MAX_DISTANCE: float
 
+    # JWT / Auth
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    JWT_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 gün
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

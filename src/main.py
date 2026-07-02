@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from helpers.config import get_settings
 from routes.fatwa_routes import fatwa_router
+from routes.auth_routes import auth_router
 
 
 @asynccontextmanager
@@ -27,7 +28,7 @@ app = FastAPI(
 )
 
 app.include_router(fatwa_router)
-
+app.include_router(auth_router)
 
 @app.get("/")
 async def welcome():

@@ -2,6 +2,8 @@
 API request/response Pydantic şemaları.
 """
 
+import uuid
+from enum import Enum
 from pydantic import BaseModel, Field
 
 
@@ -20,6 +22,21 @@ class FatwaSource(BaseModel):
 
 
 class AskResponse(BaseModel):
+    log_id: uuid.UUID
     question: str
     answer: str
     sources: list[FatwaSource]
+
+
+class FeedbackType(str, Enum):
+    like = "like"
+    dislike = "dislike"
+
+
+class FeedbackRequest(BaseModel):
+    feedback: FeedbackType
+
+
+class FeedbackResponse(BaseModel):
+    question_log_id: uuid.UUID
+    feedback: FeedbackType
