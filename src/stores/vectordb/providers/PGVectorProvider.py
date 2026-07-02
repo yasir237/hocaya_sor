@@ -1,7 +1,5 @@
 """
-pgvector (Postgres) tabanlı VectorDB provider. Mevcut 'fatwas' tablosunu
-hem ham veri hem de vektör deposu olarak kullanıyoruz -- ayrı bir vector DB
-kurmaya gerek yok, pgvector extension'ı bunu zaten destekliyor.
+pgvector (Postgres) tabanlı VectorDB provider.
 """
 
 import uuid
@@ -15,6 +13,9 @@ from models.db_schemes.hocaya_sor.schemes.fatwa import Fatwa
 
 class PGVectorProvider(VectorDBInterface):
 
+    def __init__(self, max_distance: float = 0.20):
+        self.max_distance = max_distance
+
     def insert_vector(self, record_id: str, vector: list[float]) -> None:
         db = SessionLocal()
         try:
@@ -27,28 +28,41 @@ class PGVectorProvider(VectorDBInterface):
         finally:
             db.close()
 
-    def search(self, query_vector: list[float], top_k: int = 5) -> list[dict]:
+    def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+        max_distance: float | None = None,
+    ) -> list[dict]:
+        """
+        En yakın top_k fetvayı döner.
+        max_distance eşiğini geçen (alakasız) sonuçlar filtrelenir.
+        Cosine distance: 0 = aynı, 1 = ilgisiz, 2 = tamamen zıt.
+        """
+        threshold = max_distance if max_distance is not None else self.max_distance
+
         db = SessionLocal()
         try:
-            # pgvector'ın cosine distance operatörü: <=>
-            # (Fatwa modelinde embedding kolonu Vector(768) tipinde tanımlı olduğu
-            # için SQLAlchemy bu operatörü doğrudan destekler)
+            distance_col = Fatwa.embedding.cosine_distance(query_vector).label("distance")
             stmt = (
-                select(Fatwa)
+                select(Fatwa, distance_col)
                 .where(Fatwa.embedding.is_not(None))
-                .order_by(Fatwa.embedding.cosine_distance(query_vector))
+                .where(distance_col <= threshold)
+                .order_by(distance_col)
                 .limit(top_k)
             )
-            results = db.execute(stmt).scalars().all()
+            rows = db.execute(stmt).all()
             return [
                 {
-                    "id": str(r.id),
-                    "question": r.question,
-                    "answer": r.answer,
-                    "main_category": r.main_category,
-                    "source_dataset": r.source_dataset,
+                    "id": str(r.Fatwa.id),
+                    "question": r.Fatwa.question,
+                    "answer": r.Fatwa.answer,
+                    "main_category": r.Fatwa.main_category,
+                    "source_dataset": r.Fatwa.source_dataset,
+                    "source_url": r.Fatwa.source_url,
+                    "distance": round(r.distance, 4),
                 }
-                for r in results
+                for r in rows
             ]
         finally:
             db.close()

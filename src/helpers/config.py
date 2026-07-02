@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     VECTORDB_BACKEND: str 
     EMBEDDING_SLEEP_SECONDS: float 
 
+    VECTOR_MAX_DISTANCE:float
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

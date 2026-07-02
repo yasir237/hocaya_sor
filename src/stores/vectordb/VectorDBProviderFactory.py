@@ -11,8 +11,8 @@ class VectorDBProviderFactory:
         backend = (backend or os.getenv("VECTORDB_BACKEND", "pgvector")).lower()
 
         if backend == "pgvector":
-            return PGVectorProvider()
-
-        # ileride buraya elif backend == "qdrant": ... eklenecek
+            return PGVectorProvider(
+                max_distance=float(os.getenv("VECTOR_MAX_DISTANCE", "0.20"))
+            )
 
         raise ValueError(f"Bilinmeyen VECTORDB_BACKEND: '{backend}'")
