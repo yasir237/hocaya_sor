@@ -2,6 +2,7 @@
 Fetva arama ve cevap üretme iş mantığı.
 """
 
+import logging
 import uuid
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -13,6 +14,9 @@ from models.schemas.fatwa_schemas import (
 )
 from models.db_schemes.hocaya_sor.schemes.question_log import QuestionLog
 from models.db_schemes.hocaya_sor.schemes.question_feedback import QuestionFeedback
+from models.enums.ResponseEnums import ResponseSignal
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """Sen Diyanet İşleri Başkanlığı'nın fetva veritabanına dayanan bir İslam hukuku asistanısın.
@@ -69,16 +73,24 @@ async def ask_question(request: AskRequest, user_id: uuid.UUID, db: Session) -> 
 
     try:
         query_vector = embedding_llm.embed_text(request.question)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Embedding servisi hatası: {str(e)}")
+    except Exception:
+        logger.exception("Embedding servisi hatası (user_id=%s)", user_id)
+        raise HTTPException(
+            status_code=503,
+            detail=ResponseSignal.EMBEDDING_SERVICE_ERROR.value,
+        )
 
     try:
         results = vdb.search(query_vector, top_k=request.top_k)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Veritabanı arama hatası: {str(e)}")
+    except Exception:
+        logger.exception("Vektör veritabanı arama hatası (user_id=%s)", user_id)
+        raise HTTPException(
+            status_code=503,
+            detail=ResponseSignal.VECTORDB_SERVICE_ERROR.value,
+        )
 
     if not results:
-        raise HTTPException(status_code=404, detail="İlgili fetva bulunamadı.")
+        raise HTTPException(status_code=404, detail=ResponseSignal.FATWA_NOT_FOUND.value)
 
     context_parts = []
     for i, r in enumerate(results):
@@ -97,19 +109,34 @@ KULLANICI SORUSU: {request.question}"""
 
     try:
         answer = generation_llm.generate_text(prompt, system_prompt=SYSTEM_PROMPT)
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Cevap üretme hatası: {str(e)}")
+    except Exception:
+        logger.exception("Cevap üretme hatası (user_id=%s)", user_id)
+        raise HTTPException(
+            status_code=503,
+            detail=ResponseSignal.GENERATION_SERVICE_ERROR.value,
+        )
 
     # Soruyu logla (kullanıcı, cevap, kullanılan fetva id'leri)
-    log = QuestionLog(
-        user_id=user_id,
-        question=request.question,
-        answer=answer,
-        retrieved_fatwa_ids=[uuid.UUID(r["id"]) for r in results],
-    )
-    db.add(log)
-    db.commit()
-    db.refresh(log)
+    try:
+        log = QuestionLog(
+            user_id=user_id,
+            question=request.question,
+            answer=answer,
+            retrieved_fatwa_ids=[uuid.UUID(r["id"]) for r in results],
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(log)
+    except Exception:
+        db.rollback()
+        logger.exception("Soru loglama hatası (user_id=%s)", user_id)
+        # Loglama başarısız olsa da kullanıcı cevabı almalı; log_id olmadan devam et
+        # yerine burada isteği tamamen düşürmek yanlış olur, ama log_id gerekli
+        # olduğu için genel bir hata dönmek daha tutarlı.
+        raise HTTPException(
+            status_code=500,
+            detail=ResponseSignal.SERVER_ERROR.value,
+        )
 
     return AskResponse(
         log_id=log.id,
@@ -134,27 +161,35 @@ async def submit_feedback(
 ) -> FeedbackResponse:
     log = db.query(QuestionLog).filter(QuestionLog.id == log_id).first()
     if log is None:
-        raise HTTPException(status_code=404, detail="Soru kaydı bulunamadı.")
+        raise HTTPException(status_code=404, detail=ResponseSignal.QUESTION_LOG_NOT_FOUND.value)
     if log.user_id != user_id:
-        raise HTTPException(status_code=403, detail="Bu soruya geri bildirim verme yetkiniz yok.")
+        raise HTTPException(status_code=403, detail=ResponseSignal.FEEDBACK_FORBIDDEN.value)
 
-    existing = db.query(QuestionFeedback).filter(
-        QuestionFeedback.question_log_id == log_id
-    ).first()
+    try:
+        existing = db.query(QuestionFeedback).filter(
+            QuestionFeedback.question_log_id == log_id
+        ).first()
 
-    if existing:
-        existing.feedback = request.feedback.value
-        db.commit()
-        db.refresh(existing)
-        fb = existing
-    else:
-        fb = QuestionFeedback(
-            question_log_id=log_id,
-            user_id=user_id,
-            feedback=request.feedback.value,
+        if existing:
+            existing.feedback = request.feedback.value
+            db.commit()
+            db.refresh(existing)
+            fb = existing
+        else:
+            fb = QuestionFeedback(
+                question_log_id=log_id,
+                user_id=user_id,
+                feedback=request.feedback.value,
+            )
+            db.add(fb)
+            db.commit()
+            db.refresh(fb)
+    except Exception:
+        db.rollback()
+        logger.exception("Feedback kaydetme hatası (user_id=%s, log_id=%s)", user_id, log_id)
+        raise HTTPException(
+            status_code=500,
+            detail=ResponseSignal.SERVER_ERROR.value,
         )
-        db.add(fb)
-        db.commit()
-        db.refresh(fb)
 
     return FeedbackResponse(question_log_id=fb.question_log_id, feedback=fb.feedback)

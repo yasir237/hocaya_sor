@@ -12,6 +12,9 @@ from models.db_schemes.hocaya_sor.schemes.fatwa import Fatwa  # noqa
 from models.db_schemes.hocaya_sor.schemes.user import User  # noqa
 from models.db_schemes.hocaya_sor.schemes.question_log import QuestionLog  # noqa
 from models.db_schemes.hocaya_sor.schemes.question_feedback import QuestionFeedback  # noqa
+from models.db_schemes.hocaya_sor.schemes.refresh_token import RefreshToken  # noqa
+
+
 ## Buraya kadar
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

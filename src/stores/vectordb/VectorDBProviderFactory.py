@@ -1,18 +1,18 @@
-import os
-
+from helpers.config import get_settings
+from models.enums.VectorDBEnum import VectorDBBackendEnum
 from stores.vectordb.VectorDBInterface import VectorDBInterface
 from stores.vectordb.providers.PGVectorProvider import PGVectorProvider
+
+settings = get_settings()
 
 
 class VectorDBProviderFactory:
 
     @staticmethod
-    def create(backend: str | None = None) -> VectorDBInterface:
-        backend = (backend or os.getenv("VECTORDB_BACKEND", "pgvector")).lower()
+    def create(backend: VectorDBBackendEnum | None = None) -> VectorDBInterface:
+        backend = backend or settings.VECTORDB_BACKEND
 
-        if backend == "pgvector":
-            return PGVectorProvider(
-                max_distance=float(os.getenv("VECTOR_MAX_DISTANCE", "0.20"))
-            )
+        if backend == VectorDBBackendEnum.PGVECTOR:
+            return PGVectorProvider(max_distance=settings.VECTOR_MAX_DISTANCE)
 
         raise ValueError(f"Bilinmeyen VECTORDB_BACKEND: '{backend}'")

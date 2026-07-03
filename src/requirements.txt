@@ -12,3 +12,4 @@ groq==1.5.0
 bcrypt==5.0.0
 PyJWT==2.13.0
 email-validator==2.3.0
+slowapi==0.1.10

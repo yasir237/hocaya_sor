@@ -2,7 +2,7 @@
 Fetva API endpoint'leri.
 """
 import uuid
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from controllers.fatwa_controller import ask_question, submit_feedback
@@ -12,13 +12,16 @@ from models.schemas.fatwa_schemas import (
 from helpers.security import get_current_user
 from models.db_schemes.hocaya_sor.schemes.user import User
 from models.db_connection import get_db
+from helpers.rate_limiter import limiter
 
 fatwa_router = APIRouter(prefix="/api/v1/fatwa", tags=["Fetva"])
 
 
 @fatwa_router.post("/ask", response_model=AskResponse, summary="Fetva sor")
+@limiter.limit("10/minute")
 async def ask(
-    request: AskRequest,
+    request: Request,
+    body: AskRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -27,23 +30,25 @@ async def ask(
     ve LLM aracılığıyla Türkçe bir cevap üretir.
 
     JWT ile korumalıdır. Soru/cevap otomatik loglanır; dönen `log_id`
-    feedback endpoint'inde kullanılır.
+    feedback endpoint'inde kullanılır. Dakikada en fazla 10 istek.
     """
-    return await ask_question(request, current_user.id, db)
+    return await ask_question(body, current_user.id, db)
 
 
 @fatwa_router.post(
     "/feedback/{log_id}", response_model=FeedbackResponse, summary="Cevaba geri bildirim ver"
 )
+@limiter.limit("30/minute")
 async def feedback(
+    request: Request,
     log_id: uuid.UUID,
-    request: FeedbackRequest,
+    body: FeedbackRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Bir soru-cevap logu için like/dislike geri bildirimi kaydeder.
     Sadece kendi sorduğunuz sorulara geri bildirim verebilirsiniz.
-    Tekrar çağrılırsa mevcut feedback güncellenir.
+    Tekrar çağrılırsa mevcut feedback güncellenir. Dakikada en fazla 30 istek.
     """
-    return await submit_feedback(log_id, request, current_user.id, db)
+    return await submit_feedback(log_id, body, current_user.id, db)

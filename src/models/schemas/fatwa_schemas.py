@@ -3,8 +3,9 @@ API request/response Pydantic şemaları.
 """
 
 import uuid
-from enum import Enum
 from pydantic import BaseModel, Field
+
+from models.enums.FeedbackEnum import FeedbackTypeEnum as FeedbackType
 
 
 class AskRequest(BaseModel):
@@ -26,11 +27,6 @@ class AskResponse(BaseModel):
     question: str
     answer: str
     sources: list[FatwaSource]
-
-
-class FeedbackType(str, Enum):
-    like = "like"
-    dislike = "dislike"
 
 
 class FeedbackRequest(BaseModel):
