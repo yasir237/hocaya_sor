@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     JWT_ACCESS_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_EXPIRE_DAYS: int = 30
 
+    # E-posta (Resend)
+    RESEND_API_KEY: str
+    EMAIL_FROM: str = "Hocaya Sor <onboarding@resend.dev>"
+    FRONTEND_URL: str = "http://localhost:3000"
+    
+    EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
+    EMAIL_VERIFICATION_RESEND_COOLDOWN_MINUTES: int = 3
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def check_jwt_secret_strength(cls, v: str) -> str:

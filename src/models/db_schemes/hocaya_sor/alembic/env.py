@@ -13,7 +13,8 @@ from models.db_schemes.hocaya_sor.schemes.user import User  # noqa
 from models.db_schemes.hocaya_sor.schemes.question_log import QuestionLog  # noqa
 from models.db_schemes.hocaya_sor.schemes.question_feedback import QuestionFeedback  # noqa
 from models.db_schemes.hocaya_sor.schemes.refresh_token import RefreshToken  # noqa
-
+from models.db_schemes.hocaya_sor.schemes.email_verification_token import EmailVerificationToken  # noqa
+from models.db_schemes.hocaya_sor.schemes.conversation import Conversation
 
 ## Buraya kadar
 # this is the Alembic Config object, which provides

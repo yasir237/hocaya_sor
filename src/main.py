@@ -16,9 +16,10 @@ from slowapi.errors import RateLimitExceeded
 from helpers.config import get_settings
 from routes.fatwa_routes import fatwa_router
 from routes.auth_routes import auth_router
+from routes.conversation_routes import conversation_router
+
 from helpers.rate_limiter import limiter
 from models.enums.ResponseEnums import ResponseSignal
-
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,8 +50,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",   # Next.js dev server
-        "http://127.0.0.1:3000",
+        "*",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -77,6 +77,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 app.include_router(fatwa_router)
 app.include_router(auth_router)
+app.include_router(conversation_router)
 
 
 @app.get("/")

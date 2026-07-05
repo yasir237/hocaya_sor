@@ -2,6 +2,7 @@
 Fetva arama ve cevap üretme iş mantığı.
 """
 
+import datetime
 import logging
 import uuid
 from fastapi import HTTPException
@@ -14,6 +15,7 @@ from models.schemas.fatwa_schemas import (
 )
 from models.db_schemes.hocaya_sor.schemes.question_log import QuestionLog
 from models.db_schemes.hocaya_sor.schemes.question_feedback import QuestionFeedback
+from models.db_schemes.hocaya_sor.schemes.conversation import Conversation
 from models.enums.ResponseEnums import ResponseSignal
 
 logger = logging.getLogger(__name__)
@@ -66,10 +68,33 @@ def get_vdb():
     return _vdb
 
 
+def _make_conversation_title(question: str) -> str:
+    title = question.strip()
+    return title[:60] + ("…" if len(title) > 60 else "")
+
+
 async def ask_question(request: AskRequest, user_id: uuid.UUID, db: Session) -> AskResponse:
     embedding_llm = get_embedding_llm()
     generation_llm = get_generation_llm()
     vdb = get_vdb()
+
+    # Sohbeti bul (mevcutsa) ya da oluştur (yoksa) — henüz commit etmiyoruz,
+    # asıl soru-cevap işlemiyle birlikte tek transaction'da tamamlanacak.
+    if request.conversation_id is not None:
+        conversation = (
+            db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
+        )
+        if conversation is None or conversation.user_id != user_id:
+            raise HTTPException(
+                status_code=404, detail=ResponseSignal.CONVERSATION_NOT_FOUND.value
+            )
+    else:
+        conversation = Conversation(
+            user_id=user_id,
+            title=_make_conversation_title(request.question),
+        )
+        db.add(conversation)
+        db.flush()  # commit beklemeden conversation.id'yi almak için
 
     try:
         query_vector = embedding_llm.embed_text(request.question)
@@ -116,14 +141,16 @@ KULLANICI SORUSU: {request.question}"""
             detail=ResponseSignal.GENERATION_SERVICE_ERROR.value,
         )
 
-    # Soruyu logla (kullanıcı, cevap, kullanılan fetva id'leri)
+    # Soruyu logla (kullanıcı, sohbet, cevap, kullanılan fetva id'leri)
     try:
         log = QuestionLog(
             user_id=user_id,
+            conversation_id=conversation.id,
             question=request.question,
             answer=answer,
             retrieved_fatwa_ids=[uuid.UUID(r["id"]) for r in results],
         )
+        conversation.updated_at = datetime.datetime.now(datetime.timezone.utc)
         db.add(log)
         db.commit()
         db.refresh(log)
@@ -139,6 +166,7 @@ KULLANICI SORUSU: {request.question}"""
         )
 
     return AskResponse(
+        conversation_id=conversation.id,
         log_id=log.id,
         question=request.question,
         answer=answer,
@@ -154,7 +182,6 @@ KULLANICI SORUSU: {request.question}"""
             for r in results
         ],
     )
-
 
 async def submit_feedback(
     log_id: uuid.UUID, request: FeedbackRequest, user_id: uuid.UUID, db: Session
@@ -172,6 +199,7 @@ async def submit_feedback(
 
         if existing:
             existing.feedback = request.feedback.value
+            existing.comment = request.comment
             db.commit()
             db.refresh(existing)
             fb = existing
@@ -180,6 +208,7 @@ async def submit_feedback(
                 question_log_id=log_id,
                 user_id=user_id,
                 feedback=request.feedback.value,
+                comment=request.comment,
             )
             db.add(fb)
             db.commit()
@@ -192,4 +221,8 @@ async def submit_feedback(
             detail=ResponseSignal.SERVER_ERROR.value,
         )
 
-    return FeedbackResponse(question_log_id=fb.question_log_id, feedback=fb.feedback)
+    return FeedbackResponse(
+        question_log_id=fb.question_log_id,
+        feedback=fb.feedback,
+        comment=fb.comment,
+    )

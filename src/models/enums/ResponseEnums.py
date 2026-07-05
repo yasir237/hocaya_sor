@@ -26,3 +26,18 @@ class ResponseSignal(str, Enum):
     INVALID_TOKEN_TYPE = "Geçersiz token türü."
     USER_NOT_FOUND = "Kullanıcı bulunamadı."
     INVALID_REFRESH_TOKEN = "Geçersiz veya süresi dolmuş refresh token."
+
+    # E-mail Doğrulama
+    TOO_MANY_VERIFICATION_ATTEMPTS = (
+        "Çok fazla hatalı deneme yapıldı. Lütfen yeni bir doğrulama kodu isteyin."
+    )
+
+    EMAIL_NOT_VERIFIED = (
+        "E-posta adresiniz henüz doğrulanmamış. Doğrulama e-postasını tekrar "
+        "göndermek için /auth/resend-verification kullanın."
+    )
+    INVALID_VERIFICATION_TOKEN = "Geçersiz veya süresi dolmuş doğrulama bağlantısı."
+
+    # Sohbet Mikanizması
+    CONVERSATION_NOT_FOUND = "Sohbet bulunamadı."
+    CONVERSATION_FORBIDDEN = "Bu sohbete erişim yetkiniz yok."

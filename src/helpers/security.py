@@ -1,5 +1,5 @@
 """
-Şifre hashleme (bcrypt), JWT access token ve refresh token oluşturma/doğrulama.
+Şifre hashleme (bcrypt), JWT access token ve opaque token (refresh/verification) yönetimi.
 """
 import datetime
 import hashlib
@@ -15,7 +15,6 @@ from helpers.config import get_settings
 from models.db_connection import get_db
 from models.db_schemes.hocaya_sor.schemes.user import User
 from models.enums.ResponseEnums import ResponseSignal
-
 
 settings = get_settings()
 bearer_scheme = HTTPBearer()
@@ -65,13 +64,13 @@ def decode_access_token(token: str) -> uuid.UUID:
         )
 
 
-# ---------- Refresh token (opaque random string, DB'de hash'i tutulur) ----------
-def generate_refresh_token() -> str:
-    """Rastgele, tahmin edilemez bir refresh token üretir (ham hali sadece client'a döner)."""
+# ---------- Opaque token (refresh / e-posta doğrulama, DB'de hash tutulur) ----------
+def generate_opaque_token() -> str:
+    """Rastgele, tahmin edilemez bir token üretir (ham hali sadece client'a/e-postaya gider)."""
     return secrets.token_urlsafe(48)
 
 
-def hash_refresh_token(token: str) -> str:
+def hash_opaque_token(token: str) -> str:
     """DB'de tutulacak sha256 hash. Ham token asla veritabanına yazılmaz."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -80,6 +79,17 @@ def refresh_token_expiry() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
         days=settings.JWT_REFRESH_EXPIRE_DAYS
     )
+
+def generate_verification_code() -> str:
+    """6 haneli, tahmin edilemez rastgele bir doğrulama kodu üretir."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def verification_token_expiry() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        minutes=settings.EMAIL_VERIFICATION_EXPIRE_MINUTES
+    )
+
 
 
 # ---------- Dependency: mevcut kullanıcıyı çöz ----------
