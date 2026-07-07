@@ -1,5 +1,5 @@
 """
-assets/fatwas/ altındaki iki JSON dosyasını okuyup 'fatwas' tablosuna yükler.
+assets/fatwas/ altındaki üç JSON dosyasını okuyup 'fatwas' tablosuna yükler.
 Embedding alanı bu aşamada doldurulmaz (None bırakılır) -- ayrı bir script
 ile sonra doldurulacak.
 
@@ -25,6 +25,7 @@ from models.db_schemes.hocaya_sor.schemes.fatwa import Fatwa
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "assets", "fatwas")
 FETVALAR_PATH = os.path.join(ASSETS_DIR, "fetvalar.jsonl")
 PDF_FETVALAR_PATH = os.path.join(ASSETS_DIR, "pdf_fetvalar.json")
+ISLAMWEB_FETVALAR_PATH = os.path.join(ASSETS_DIR, "islamweb_fetvalar.json")
 
 # PDF'den çıkmış metinlerdeki sayfa-no + form-feed + başlık kalıntısı deseni.
 # Örnek kirlilik: "52  \fİTİKAD" veya "53  \fDİN İŞLERİ YÜKSEK KURULU FETVALARI"
@@ -75,6 +76,28 @@ def load_pdf_fetvalar_json(path: str, source_dataset: str) -> list[dict]:
         obj["answer"] = clean_pdf_text(obj.get("answer", ""))
         obj["question"] = clean_pdf_text(obj.get("question", ""))
         obj["source_dataset"] = source_dataset
+    return data
+
+
+def load_islamweb_fetvalar_json(path: str, source_dataset: str) -> list[dict]:
+    """
+    islamweb_fetvalar.json -- normal JSON array (normalize_islamweb.py'den geçmiş,
+    tüm id'ler geçerli UUID, source_dataset zaten atanmış olmalı).
+
+    Bu dosyayı önce şununla üret:
+        python normalize_islamweb.py assets/fatwas/islamweb_fetvalar_raw.json \
+                                      assets/fatwas/islamweb_fetvalar.json
+    """
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    for obj in data:
+        # islamweb verisinde PDF kirliliği yok, ama zararsız olduğu için
+        # yine de geçiriyoruz -- desen eşleşmezse metni değiştirmez.
+        obj["answer"] = clean_pdf_text(obj.get("answer", ""))
+        obj["question"] = clean_pdf_text(obj.get("question", ""))
+        # normalize_islamweb.py zaten source_dataset='islamweb' atıyor;
+        # burada üzerine yazmıyoruz ki normalize script'in kararı bozulmasın.
+        obj.setdefault("source_dataset", source_dataset)
     return data
 
 
@@ -131,6 +154,14 @@ def main():
         all_records.extend(recs)
     else:
         print(f"[UYARI] {PDF_FETVALAR_PATH} bulunamadı, atlanıyor.")
+
+    if os.path.exists(ISLAMWEB_FETVALAR_PATH):
+        recs = load_islamweb_fetvalar_json(ISLAMWEB_FETVALAR_PATH, source_dataset="islamweb")
+        print(f"islamweb_fetvalar.json -> {len(recs)} kayıt okundu")
+        all_records.extend(recs)
+    else:
+        print(f"[UYARI] {ISLAMWEB_FETVALAR_PATH} bulunamadı, atlanıyor. "
+              f"(Önce normalize_islamweb.py ile ham dosyayı normalize et.)")
 
     print(f"\nToplam {len(all_records)} kayıt işlenecek.\n")
 

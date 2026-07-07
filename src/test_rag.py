@@ -73,9 +73,9 @@ KULLANICI SORUSU: {question}"""
 
 def main():
     test_sorular = [
-        "Namazda imam yanılırsa ne yapılır?",
-        "Faiz haram mı?",
-        "Abdestsiz Kuran okunur mu?",
+        "Sakal tıraşı büyük günah mıdır?",
+        "Hicap zorla giydirilirse hükmü değişir mi?",
+        "Hırsızlık haddi için nisab şartı nedir?",
     ]
 
     for soru in test_sorular:
