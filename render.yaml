@@ -1,0 +1,71 @@
+# Render Blueprint - opsiyonel.
+# Render dashboard'dan "New +" > "Blueprint" ile bu dosyayı kullanarak
+# servisi otomatik oluşturabilirsin, ya da elle "Web Service" oluşturup
+# aşağıdaki env var'ları manuel girebilirsin (daha kolayı bu olabilir).
+
+services:
+  - type: web
+    name: hocaya-sor-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /docs
+    envVars:
+      - key: APP_NAME
+        value: hocaya_sor
+      - key: APP_VERSION
+        value: "0.1"
+      # --- Supabase Postgres bağlantı bilgileri (Supabase dashboard > Project Settings > Database) ---
+      - key: POSTGRES_HOST
+        sync: false
+      - key: POSTGRES_PORT
+        value: "5432"
+      - key: POSTGRES_USER
+        sync: false
+      - key: POSTGRES_PASSWORD
+        sync: false
+      - key: POSTGRES_DB
+        sync: false
+      # --- Embedding / Generation ---
+      - key: EMBEDDING_BACKEND
+        value: google
+      - key: GOOGLE_API_KEYS
+        sync: false
+      - key: GOOGLE_EMBEDDING_MODEL
+        value: gemini-embedding-001
+      - key: GOOGLE_GENERATION_MODEL
+        value: gemini-2.5-flash
+      - key: EMBEDDING_DIM
+        value: "3072"
+      - key: EMBEDDING_SLEEP_SECONDS
+        value: "0.1"
+      - key: GENERATION_BACKEND
+        value: google
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_GENERATION_MODEL
+        value: llama-3.3-70b-versatile
+      # --- VectorDB ---
+      - key: VECTORDB_BACKEND
+        value: pgvector
+      - key: VECTOR_MAX_DISTANCE
+        value: "0.20"
+      # --- JWT / Auth ---
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: JWT_ACCESS_EXPIRE_MINUTES
+        value: "30"
+      - key: JWT_REFRESH_EXPIRE_DAYS
+        value: "30"
+      # --- Resend (e-posta) ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "Hocaya Sor <onboarding@resend.dev>"
+      - key: EMAIL_VERIFICATION_CODE_EXPIRE_MINUTES
+        value: "15"
+      # --- CORS (mobil uygulamanın erişebilmesi için) ---
+      - key: CORS_ALLOW_ORIGINS
+        value: "*"
