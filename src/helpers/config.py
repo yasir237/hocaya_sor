@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_EXPIRE_MINUTES: int = 15
     EMAIL_VERIFICATION_RESEND_COOLDOWN_MINUTES: int = 3
 
+    # Test modu
+    EMAIL_DEBUG_MODE: bool = False
+    EMAIL_DEBUG_RECIPIENT: str = ""
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def check_jwt_secret_strength(cls, v: str) -> str:
